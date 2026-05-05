@@ -1,0 +1,35 @@
+{
+  "name": "zen-notepad",
+  "version": "1.0.0",
+  "description": "Zen Notepad",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.zen.notepad",
+    "productName": "Zen Notepad",
+    "win": {
+      "target": "nsis",
+      "fileAssociations": [
+        {
+          "ext": "txt",
+          "name": "Text Document",
+          "description": "Text file",
+          "role": "Editor"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

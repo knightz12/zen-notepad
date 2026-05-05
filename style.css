@@ -1,0 +1,722 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f0f13;
+  color: white;
+  font-family: "Segoe UI", sans-serif;
+  overflow: hidden;
+
+  -webkit-app-region: drag;
+}
+
+/* disable drag for interactive elements */
+button,
+textarea,
+.tabs,
+.tab,
+.tab-close,
+.side-btn,
+.pin-btn,
+.window-buttons,
+.sidebar {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------------- LAYOUT ---------------- */
+
+.app {
+  height: 100vh;
+  display: block;
+  padding: 6px;
+}
+
+/* ---------------- SIDEBAR (FULLY HIDDEN CLEAN) ---------------- */
+
+.sidebar {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  height: calc(100vh - 12px);
+
+  width: 180px;
+  border-radius: 14px;
+  padding: 8px;
+
+  background: transparent;
+
+  transform: translateX(-170px);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+
+  z-index: 100;
+  overflow: hidden;
+}
+
+/* hide content when closed */
+.sidebar:not(:hover) > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* show sidebar on hover */
+.sidebar:hover {
+  transform: translateX(0);
+  background: #1b1b20;
+}
+
+/* show content */
+.sidebar:hover > * {
+  opacity: 1;
+}
+
+/* invisible trigger zone */
+.sidebar::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 100vh;
+
+  background: transparent;
+  border-radius: 0; /* 🔥 remove rounding artifact */
+  pointer-events: auto;
+}
+
+.sidebar {
+  background-clip: padding-box;
+}
+
+/* ---------------- SIDEBAR CONTENT ---------------- */
+
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 6px 0 12px;
+  text-align: center;
+}
+
+.side-btn {
+  width: 100%;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: #2a2a35;
+  color: white;
+  margin-bottom: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.side-btn:hover {
+  background: #383848;
+}
+
+/* ---------------- TABS ---------------- */
+
+.tabs {
+  margin-top: 6px;
+  overflow-y: auto;
+  height: calc(100vh - 140px);
+}
+
+.tab {
+  height: 26px;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin-bottom: 3px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+
+.tab:hover {
+  background: #333344;
+}
+
+.tab.active {
+  background: #343447;
+}
+
+/* ---------------- MAIN ---------------- */
+
+.main {
+  position: relative;
+  height: calc(100vh - 12px);
+  margin: 6px;
+
+  background: #18181d;
+  border-radius: 18px;
+
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+/* ---------------- WINDOW BUTTONS (FIXED & ALIGNED) ---------------- */
+
+.window-buttons {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  z-index: 50;
+}
+
+.window-buttons button {
+  width: 32px;
+  height: 28px;
+
+  border: none;
+  background: transparent !important;
+
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 6px;
+}
+
+.window-buttons button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* close button (red like Windows) */
+.window-buttons button:last-child:hover {
+  background: rgba(196, 43, 28, 0.9) !important;
+  color: white;
+}
+
+/* ---------------- TOPBAR ---------------- */
+
+.topbar {
+  height: 24px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  padding: 0 100px 0 6px;
+  margin-bottom: 4px;
+}
+
+.topbar span {
+  flex: 1;
+  color: #e8e8ff;
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+.topbar button {
+  width: 42px;
+  height: 20px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(42, 42, 53, 0.75);
+  color: white;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.topbar button:hover {
+  background: rgba(56, 56, 72, 0.9);
+}
+
+/* ---------------- EDITOR ---------------- */
+
+#editor {
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: #101014;
+  color: white;
+  border-radius: 14px;
+  padding: 10px;
+  font-family: Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------------- STATUS ---------------- */
+
+.status {
+  height: 20px;
+  background: #141418;
+  color: #a9a9b8;
+  border-radius: 8px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  transition: opacity 0.2s ease;
+}
+
+.status.hidden {
+  opacity: 0;
+}
+
+/* ---------------- SIDEBAR HEADER (SAME LINE STYLE) ---------------- */
+
+.sidebar-header {
+  width: 100%;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 4px;
+  margin-bottom: 10px;
+
+  background: transparent; /* 🔥 remove header bg */
+}
+
+/* logo left */
+.logo {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+
+  margin: 0;              /* 🔥 remove center spacing */
+  text-align: left;
+}
+
+/* icon button */
+.pin-btn {
+  width: 22px;
+  height: 22px;
+
+  border: none;
+  border-radius: 6px;
+
+  background: rgba(42, 42, 53, 0.6); /* 🔥 only button has bg */
+  color: rgba(255,255,255,0.7);
+
+  font-size: 12px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+/* ---------------- PINNED STATE ---------------- */
+
+/* sidebar stays open */
+.sidebar.pinned {
+  transform: translateX(0) !important;
+  background: #1b1b20 !important;
+}
+
+/* show sidebar content */
+.sidebar.pinned > * {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* darker header when pinned (like Wrap ON) */
+.sidebar.pinned .pin-btn {
+  background: rgba(80, 80, 95, 0.9); /* like Wrap ON */
+  color: white;
+}
+
+/* highlight icon */
+.sidebar.pinned .pin-btn {
+  color: white;
+}
+
+/* remove old artifacts */
+.sidebar.pinned::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* ---------------- RESIZE MAIN WHEN PINNED ---------------- */
+
+.sidebar.pinned ~ .main {
+  margin-left: 186px; /* sidebar width + small gap */
+  transition: margin-left 0.25s ease;
+}
+
+/* ---------------- TAB CLOSE BUTTON ADD-ON ---------------- */
+
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+/* ---------------- SIDEBAR ACTION ROW ---------------- */
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar-actions .side-btn {
+  font-size: 10px;
+  height: 24px;
+}
+
+/* ---------------- CONFIRM MODAL (MATCH UI) ---------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 999;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 360px;
+  background: #1e1e24; /* match main UI */
+  border-radius: 14px;
+  padding: 16px;
+
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+
+.modal-box h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: white;
+}
+
+.modal-box p {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-actions button {
+  min-width: 80px;
+  height: 30px;
+
+  border-radius: 8px;
+  border: none;
+
+  background: rgba(42, 42, 53, 0.7); /* same as buttons */
+  color: white;
+
+  cursor: pointer;
+}
+
+.modal-actions button:hover {
+  background: rgba(56, 56, 72, 0.9);
+}
+
+/* Save button = active (like Wrap ON) */
+#confirmSave {
+  background: rgba(80, 80, 95, 0.9);
+}
+
+#confirmSave:hover {
+  background: rgba(100, 100, 120, 1);
+}
+
+/* ---------------- FIND BAR (MATCH UI) ---------------- */
+
+.find-bar {
+    position: absolute;
+    top: 38px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 520px;
+    z-index: 200;
+}
+
+/* container */
+.find-container {
+    background: #1e1e24; /* match main UI */
+    border-radius: 14px;
+    padding: 10px;
+
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* row */
+.find-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* inputs */
+.find-row input,
+.replace-row input {
+    flex: 1;
+    height: 32px;
+
+    border: none;
+    outline: none;
+
+    background: rgba(42, 42, 53, 0.6); /* same as buttons */
+    color: white;
+
+    border-radius: 8px;
+    padding: 0 10px;
+
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.find-row input:focus,
+.replace-row input:focus {
+    border-color: rgba(120,120,150,0.6);
+}
+
+/* icons */
+.find-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.find-icons button {
+    width: 30px;
+    height: 30px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: rgba(42, 42, 53, 0.6);
+    color: rgba(255,255,255,0.7);
+
+    cursor: pointer;
+}
+
+.find-icons button:hover {
+    background: rgba(56, 56, 72, 0.9);
+    color: white;
+}
+
+/* divider */
+.divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.15);
+    margin: 0 4px;
+}
+
+/* ---------------- REPLACE ROW ---------------- */
+
+.replace-row {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.replace-row.hidden {
+    display: none;
+}
+
+/* replace buttons */
+.replace-btn {
+    height: 32px;
+    padding: 0 12px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: rgba(42, 42, 53, 0.6);
+    color: white;
+
+    cursor: pointer;
+}
+
+.replace-btn:hover {
+    background: rgba(56, 56, 72, 0.9);
+}
+
+/* primary action (Replace) */
+.replace-btn:first-of-type {
+    background: rgba(80, 80, 95, 0.9); /* like Wrap ON */
+}
+
+.replace-btn:first-of-type:hover {
+    background: rgba(100, 100, 120, 1);
+}
+
+/* ---------------- WORD WRAP ---------------- */
+
+#editor.no-wrap {
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ---------------- WRAP BUTTON ---------------- */
+
+.wrap-btn {
+  width: 50px;
+  height: 20px;
+  border: none;
+  border-radius: 8px;
+
+  background: rgba(42, 42, 53, 0.6); /* normal */
+  color: white;
+
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.wrap-btn:hover {
+  background: rgba(56, 56, 72, 0.8);
+}
+
+/* ON state */
+.wrap-btn.active {
+  background: rgba(80, 80, 95, 0.9); /* more gray */
+}
+
+/* ---------------- DARK SCROLLBAR ---------------- */
+
+/* Chrome / Edge / Electron */
+#editor::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+#editor::-webkit-scrollbar-track {
+  background: #1a1a1f;
+  border-radius: 10px;
+}
+
+#editor::-webkit-scrollbar-thumb {
+  background: #3a3a45;
+  border-radius: 10px;
+}
+
+#editor::-webkit-scrollbar-thumb:hover {
+  background: #555560;
+}
+
+/* optional arrows (rarely used but safe) */
+#editor::-webkit-scrollbar-button {
+  background: #1a1a1f;
+}
+
+.find-bar.hidden {
+  display: none !important;
+}
+
+.find-bar,
+.find-bar *,
+.find-container,
+.find-icons button,
+.replace-btn,
+#findInput,
+#replaceInput {
+  -webkit-app-region: no-drag;
+}
+
+.match-count {
+  min-width: 38px;
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+}
+
+.find-input-wrap {
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  padding: 0 6px;
+}
+
+.find-input-wrap input {
+  flex: 1;
+  height: 100%;
+  border: none !important;
+  outline: none;
+  background: transparent !important;
+  color: white;
+  padding: 0 6px;
+}
+
+.match-count {
+  min-width: 38px;
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+  text-align: center;
+}
+
+.find-inside-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  cursor: pointer;
+}
+
+.find-inside-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
