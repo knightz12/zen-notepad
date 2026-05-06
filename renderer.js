@@ -620,3 +620,21 @@ function toggleReplace() {
     const row = document.getElementById("replaceRow");
     row.classList.toggle("hidden");
   }
+
+  /* ---------------- OPEN FILE ---------------- */
+
+  window.zenAPI.onOpenFileInTab((file) => {
+  const alreadyOpen = files.find(f => f.path === file.path);
+
+  if (alreadyOpen) {
+    currentIndex = files.indexOf(alreadyOpen);
+    render();
+    return;
+  }
+
+  files.push(file);
+  currentIndex = files.length - 1;
+
+  render();
+  saveSession();
+});
