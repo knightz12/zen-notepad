@@ -1,6 +1,6 @@
 {
   "name": "zen-notepad",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Zen Notepad",
   "main": "main.js",
   "scripts": {
@@ -14,12 +14,28 @@
     "win": {
       "target": "nsis",
       "fileAssociations": [
-        {
-          "ext": "txt",
-          "name": "Text Document",
-          "description": "Text file",
-          "role": "Editor"
-        }
+        { "ext": "txt", "name": "Text Document", "description": "Text file", "role": "Editor" },
+        { "ext": "log", "name": "Log File", "description": "Log file", "role": "Editor" },
+        { "ext": "md", "name": "Markdown File", "description": "Markdown file", "role": "Editor" },
+        { "ext": "json", "name": "JSON File", "description": "JSON file", "role": "Editor" },
+        { "ext": "js", "name": "JavaScript File", "description": "JavaScript file", "role": "Editor" },
+        { "ext": "ts", "name": "TypeScript File", "description": "TypeScript file", "role": "Editor" },
+        { "ext": "html", "name": "HTML File", "description": "HTML file", "role": "Editor" },
+        { "ext": "css", "name": "CSS File", "description": "CSS file", "role": "Editor" },
+        { "ext": "xml", "name": "XML File", "description": "XML file", "role": "Editor" },
+        { "ext": "csv", "name": "CSV File", "description": "CSV file", "role": "Editor" },
+        { "ext": "py", "name": "Python File", "description": "Python file", "role": "Editor" },
+        { "ext": "java", "name": "Java File", "description": "Java file", "role": "Editor" },
+        { "ext": "c", "name": "C File", "description": "C file", "role": "Editor" },
+        { "ext": "cpp", "name": "C++ File", "description": "C++ file", "role": "Editor" },
+        { "ext": "h", "name": "Header File", "description": "Header file", "role": "Editor" },
+        { "ext": "hpp", "name": "C++ Header File", "description": "C++ header file", "role": "Editor" },
+        { "ext": "ini", "name": "INI File", "description": "INI config file", "role": "Editor" },
+        { "ext": "bat", "name": "Batch File", "description": "Windows batch file", "role": "Editor" },
+        { "ext": "cmd", "name": "Command File", "description": "Windows command file", "role": "Editor" },
+        { "ext": "ps1", "name": "PowerShell File", "description": "PowerShell script file", "role": "Editor" },
+        { "ext": "yaml", "name": "YAML File", "description": "YAML file", "role": "Editor" },
+        { "ext": "yml", "name": "YML File", "description": "YML file", "role": "Editor" }
       ]
     },
     "nsis": {

@@ -7,6 +7,31 @@ let startupFile = null;
 
 const sessionPath = path.join(app.getPath("userData"), "session.json");
 
+const supportedExtensions = [
+  ".txt",
+  ".log",
+  ".md",
+  ".json",
+  ".js",
+  ".ts",
+  ".html",
+  ".css",
+  ".xml",
+  ".csv",
+  ".py",
+  ".java",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".ini",
+  ".bat",
+  ".cmd",
+  ".ps1",
+  ".yaml",
+  ".yml"
+];
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -17,16 +42,7 @@ function isSupportedFile(filePath) {
   if (!filePath) return false;
 
   const lower = filePath.toLowerCase();
-
-  return (
-    lower.endsWith(".txt") ||
-    lower.endsWith(".md") ||
-    lower.endsWith(".json") ||
-    lower.endsWith(".js") ||
-    lower.endsWith(".py") ||
-    lower.endsWith(".html") ||
-    lower.endsWith(".css")
-  );
+  return supportedExtensions.some(ext => lower.endsWith(ext));
 }
 
 function getStartupFile() {
@@ -104,7 +120,33 @@ ipcMain.handle("open-file", async () => {
   const result = await dialog.showOpenDialog(win, {
     properties: ["openFile"],
     filters: [
-      { name: "Text Files", extensions: ["txt", "md", "json", "js", "py", "html", "css"] },
+      {
+        name: "Text Files",
+        extensions: [
+          "txt",
+          "log",
+          "md",
+          "json",
+          "js",
+          "ts",
+          "html",
+          "css",
+          "xml",
+          "csv",
+          "py",
+          "java",
+          "c",
+          "cpp",
+          "h",
+          "hpp",
+          "ini",
+          "bat",
+          "cmd",
+          "ps1",
+          "yaml",
+          "yml"
+        ]
+      },
       { name: "All Files", extensions: ["*"] }
     ]
   });
@@ -130,7 +172,9 @@ ipcMain.handle("save-file", async (_, file) => {
     filePath = result.filePath;
   }
 
-  fs.writeFileSync(filePath, file.content, "utf8");
+  const windowsText = file.content.replace(/\n/g, "\r\n");
+
+  fs.writeFileSync(filePath, windowsText, "utf8");
 
   return {
     path: filePath,
