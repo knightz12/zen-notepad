@@ -25,7 +25,7 @@ jobs:
         run: npm install
 
       - name: Build installer
-        run: npm run build
+        run: npm run build -- --publish never
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
