@@ -160,8 +160,10 @@ ipcMain.handle("save-file", async (_, file) => {
   let filePath = file.path;
 
   if (!filePath) {
+    const suggestedName = file.name || "Untitled.txt";
+
     const result = await dialog.showSaveDialog(win, {
-      defaultPath: "Untitled.txt",
+      defaultPath: suggestedName,
       filters: [
         { name: "Text Files", extensions: ["txt"] },
         { name: "All Files", extensions: ["*"] }
@@ -174,7 +176,37 @@ ipcMain.handle("save-file", async (_, file) => {
 
   const windowsText = file.content.replace(/\n/g, "\r\n");
 
+  if (file.oldPath && file.oldPath !== filePath && fs.existsSync(file.oldPath)) {
+  fs.renameSync(file.oldPath, filePath);
+  }
+
+  // If file was renamed, remove/rename the old file first
+  if (file.oldPath && file.oldPath !== filePath && fs.existsSync(file.oldPath)) {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(file.oldPath); // new name already exists, remove old
+    } else {
+      fs.renameSync(file.oldPath, filePath); // real rename
+    }
+  }
+
+  // rename existing file
+  if (
+    file.oldPath &&
+    file.oldPath !== filePath &&
+    fs.existsSync(file.oldPath)
+  ) {
+    try {
+      fs.renameSync(file.oldPath, filePath);
+    } catch {
+      // fallback if rename fails
+      fs.copyFileSync(file.oldPath, filePath);
+      fs.unlinkSync(file.oldPath);
+    }
+  }
+
   fs.writeFileSync(filePath, windowsText, "utf8");
+
+  win.setTitle(`${path.basename(filePath)} - Zen Notepad`);
 
   return {
     path: filePath,

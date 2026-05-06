@@ -7,6 +7,40 @@ const tabs = document.getElementById("tabs");
 const fileName = document.getElementById("fileName");
 const status = document.getElementById("status");
 
+fileName.addEventListener("input", () => {
+  const current = files[currentIndex];
+  if (!current) return;
+
+  current.name = fileName.value;
+  current.customName = true;
+
+  const activeTitle = tabs.querySelector(".tab.active .tab-title");
+  if (activeTitle) {
+    activeTitle.value = current.name || "Untitled.txt";
+  }
+});
+
+fileName.addEventListener("blur", () => {
+  const current = files[currentIndex];
+  if (!current) return;
+
+  let value = fileName.value.trim().replace(/[\\/:*?"<>|]/g, "");
+
+  if (value && !value.includes(".")) {
+    value += ".txt";
+  }
+
+  current.name = value; // keep empty allowed
+  fileName.value = value;
+
+  const activeTitle = tabs.querySelector(".tab.active .tab-title");
+  if (activeTitle) {
+    activeTitle.value = current.name || "Untitled.txt";
+  }
+
+  saveSession();
+});
+
 async function loadSession() {
   const startup = await window.zenAPI.getStartupFile();
 
@@ -31,7 +65,7 @@ async function loadSession() {
   } else {
     files = [{
       path: null,
-      name: "Untitled",
+      name: "Untitled.txt",
       content: "",
       lastSavedContent: ""
     }];
@@ -49,20 +83,28 @@ function saveCurrentToMemory() {
 
 function updateUntitledName() {
   const current = files[currentIndex];
+
+  // already saved -> NEVER rename
   if (!current || current.path) return;
 
-  const firstLine = editor.value.split("\n")[0].trim();
+  // user manually renamed top title
+  if (current.customName) return;
+
+  const firstLine = editor.value
+    .split("\n")[0]
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "")
+    .substring(0, 40);
 
   if (firstLine.length > 0) {
-    current.name = firstLine.substring(0, 30);
+    current.name = firstLine + ".txt";
   } else {
-    current.name = "Untitled";
+    current.name = "Untitled.txt";
   }
 }
 
 async function saveSession() {
   saveCurrentToMemory();
-  updateUntitledName();
 
   await window.zenAPI.saveSession({
     files,
@@ -77,9 +119,11 @@ function render() {
     const tab = document.createElement("div");
     tab.className = "tab" + (index === currentIndex ? " active" : "");
 
-    const title = document.createElement("span");
+    const title = document.createElement("input");
+
     title.className = "tab-title";
-    title.textContent = file.name || "Untitled";
+    title.value = file.name || "Untitled.txt";
+    title.readOnly = true;
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "tab-close";
@@ -91,16 +135,99 @@ function render() {
       closeTab(index);
     };
 
-    tab.onclick = () => switchTab(index);
+    tab.addEventListener("click", (e) => {
+      // don't switch while renaming
+      if (e.target === title && !title.readOnly) return;
+
+      switchTab(index);
+    });
+
+    title.addEventListener("mousedown", (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+      }
+    });
+
+    // right click rename
+    title.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+
+      title.readOnly = false;
+      title.style.pointerEvents = "auto";
+
+      setTimeout(() => {
+        title.focus();
+        title.select();
+      }, 0);
+    });
+
+    title.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        title.blur();
+      }
+
+      if (e.key === "Escape") {
+        title.readOnly = true;
+        title.style.pointerEvents = "none";
+
+        title.value = file.name || "Untitled.txt";
+
+        editor.focus();
+      }
+    });
+
+    // finish rename
+    title.addEventListener("blur", () => {
+      title.readOnly = true;
+      title.style.pointerEvents = "none";
+
+      let value = title.value
+        .trim()
+        .replace(/[\\/:*?"<>|]/g, "");
+
+      if (!value) {
+        value = "Untitled.txt";
+      }
+
+      if (!value.includes(".")) {
+        value += ".txt";
+      }
+
+      file.name = value;
+      file.customName = true;
+
+      title.value = value;
+
+      // sync topbar
+      if (index === currentIndex) {
+        fileName.value = value;
+      }
+
+      // rename saved file too
+      if (file.path) {
+        const dir = file.path
+          .split(/[\\/]/)
+          .slice(0, -1)
+          .join("\\");
+
+        file.oldPath = file.path;
+        file.path = dir + "\\" + value;
+      }
+
+      saveSession();
+    });
 
     tab.appendChild(title);
     tab.appendChild(closeBtn);
+
     tabs.appendChild(tab);
   });
 
   const current = files[currentIndex];
-  fileName.textContent = current.name || "Untitled";
+
+  fileName.value = current.name ?? "Untitled.txt";
   editor.value = current.content || "";
+
   updateStatus();
 }
 
@@ -108,11 +235,11 @@ function refreshTitlesOnly() {
   const current = files[currentIndex];
   if (!current) return;
 
-  fileName.textContent = current.name || "Untitled";
+  fileName.value = current.name ?? "Untitled.txt";
 
   const activeTitle = tabs.querySelector(".tab.active .tab-title");
   if (activeTitle) {
-    activeTitle.textContent = current.name || "Untitled";
+    activeTitle.value = current.name || "Untitled.txt";
   }
 }
 
@@ -128,7 +255,7 @@ function closeTab(index) {
     if (files.length === 0) {
       files.push({
         path: null,
-        name: "Untitled",
+        name: "Untitled.txt",
         content: "",
         lastSavedContent: ""
       });
@@ -166,7 +293,7 @@ function newFile() {
 
   files.push({
     path: null,
-    name: "Untitled",
+    name: "Untitled.txt",
     content: "",
     lastSavedContent: ""
   });
@@ -192,16 +319,70 @@ async function openFile() {
   saveSession();
 }
 
+function getBaseName(filePath) {
+  return filePath.split(/[\\/]/).pop();
+}
+
 async function saveFile() {
   saveCurrentToMemory();
-  updateUntitledName();
 
-  const saved = await window.zenAPI.saveFile(files[currentIndex]);
-  if (!saved) return;
+  const current = files[currentIndex];
+  if (!current) return;
 
-  files[currentIndex].path = saved.path;
-  files[currentIndex].name = saved.name;
-  files[currentIndex].lastSavedContent = files[currentIndex].content;
+  const oldName = current.name;
+  const oldPath = current.path;
+  const oldCustomName = current.customName;
+
+  let title = fileName.value.trim().replace(/[\\/:*?"<>|]/g, "");
+
+  if (!title) {
+    title = editor.value
+      .split("\n")[0]
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, "")
+      .substring(0, 40);
+  }
+
+  if (!title) {
+    title = "Untitled";
+  }
+
+  if (!title.includes(".")) {
+    title += ".txt";
+  }
+
+  const savedFileName = current.path
+    ? getBaseName(current.path)
+    : null;
+
+  current.name = title;
+  fileName.value = title;
+  current.customName = true;
+
+  // rename existing saved file automatically
+  if (current.path && savedFileName !== title) {
+    current.oldPath = current.path;
+
+    const dir = current.path.split(/[\\/]/).slice(0, -1).join("\\");
+    current.path = dir + "\\" + title;
+  }
+
+  const saved = await window.zenAPI.saveFile(current);
+
+  // canceled save
+  if (!saved) {
+    current.name = oldName;
+    current.path = oldPath;
+    current.customName = oldCustomName;
+
+    refreshTitlesOnly();
+    return;
+  }
+
+  current.path = saved.path;
+  current.name = saved.name;
+  current.lastSavedContent = current.content;
+  delete current.oldPath;
 
   render();
   saveSession();

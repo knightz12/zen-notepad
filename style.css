@@ -21,7 +21,9 @@ textarea,
 .side-btn,
 .pin-btn,
 .window-buttons,
-.sidebar {
+.sidebar,
+.file-title-input,
+.tab-title {
   -webkit-app-region: no-drag;
 }
 
@@ -147,15 +149,23 @@ textarea,
 
 .main {
   position: relative;
+
+  width: calc(100vw - 12px);
   height: calc(100vh - 12px);
-  margin: 6px;
+
+  margin: 0 0 0 6px;
 
   background: #18181d;
   border-radius: 18px;
 
   display: flex;
   flex-direction: column;
+
   padding: 6px;
+
+  overflow: hidden;
+
+  transition: margin-left 0.25s ease;
 }
 
 /* ---------------- WINDOW BUTTONS (FIXED & ALIGNED) ---------------- */
@@ -225,11 +235,33 @@ textarea,
   margin-bottom: 4px;
 }
 
-.topbar span {
+.file-title-input {
   flex: 1;
+
+  height: 22px;
+
+  background: transparent;
+  border: none;
+  outline: none;
+
   color: #e8e8ff;
-  font-size: 10px;
-  opacity: 0.9;
+  font-size: 11px;
+  font-family: "Segoe UI", sans-serif;
+
+  opacity: 0.95;
+
+  padding: 0 8px;
+  border-radius: 8px;
+
+  -webkit-app-region: no-drag;
+}
+
+.file-title-input:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.file-title-input:focus {
+  background: rgba(255,255,255,0.08);
 }
 
 .topbar button {
@@ -364,8 +396,8 @@ textarea,
 /* ---------------- RESIZE MAIN WHEN PINNED ---------------- */
 
 .sidebar.pinned ~ .main {
-  margin-left: 186px; /* sidebar width + small gap */
-  transition: margin-left 0.25s ease;
+  margin-left: 186px;
+  width: calc(100vw - 198px);
 }
 
 /* ---------------- TAB CLOSE BUTTON ADD-ON ---------------- */
@@ -379,9 +411,33 @@ textarea,
 
 .tab-title {
   flex: 1;
+
+  background: transparent;
+  border: none;
+  outline: none;
+
+  color: #f2f2f2;
+  font-size: 11px;
+  font-family: "Segoe UI", sans-serif;
+
+  min-width: 0;
+  padding: 0 4px;
+
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  pointer-events: auto;
+}
+
+.tab-title[readonly] {
+  cursor: default;
+}
+
+.tab-title:not([readonly]) {
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 
 .tab-close {
