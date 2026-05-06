@@ -64,4 +64,4 @@ Source code:
 https://github.com/knightz12/zen-notepad
 
 ## Virus Total
-https://www.virustotal.com/gui/url/8ab79bd534c0de2aeb6d76515e415ae404a4c0cf6f1817b4b3ceea18cee7145d
+https://www.virustotal.com/gui/url/b89e46f4eff5b4153e08d767039bf24a822145e20130f51102df6523267e7966
