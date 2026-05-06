@@ -7,19 +7,44 @@ let startupFile = null;
 
 const sessionPath = path.join(app.getPath("userData"), "session.json");
 
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+}
+
+function isSupportedFile(filePath) {
+  if (!filePath) return false;
+
+  const lower = filePath.toLowerCase();
+
+  return (
+    lower.endsWith(".txt") ||
+    lower.endsWith(".md") ||
+    lower.endsWith(".json") ||
+    lower.endsWith(".js") ||
+    lower.endsWith(".py") ||
+    lower.endsWith(".html") ||
+    lower.endsWith(".css")
+  );
+}
+
 function getStartupFile() {
-  return process.argv.find(arg => {
-    const lower = arg.toLowerCase();
-    return (
-      lower.endsWith(".txt") ||
-      lower.endsWith(".md") ||
-      lower.endsWith(".json") ||
-      lower.endsWith(".js") ||
-      lower.endsWith(".py") ||
-      lower.endsWith(".html") ||
-      lower.endsWith(".css")
-    );
-  });
+  return process.argv.find(arg => isSupportedFile(arg));
+}
+
+function readFileForTab(filePath) {
+  if (!filePath) return null;
+  if (!fs.existsSync(filePath)) return null;
+
+  const content = fs.readFileSync(filePath, "utf8");
+
+  return {
+    path: filePath,
+    name: path.basename(filePath),
+    content,
+    lastSavedContent: content
+  };
 }
 
 function createWindow() {
@@ -42,6 +67,20 @@ function createWindow() {
   win.loadFile("index.html");
 }
 
+app.on("second-instance", (_, commandLine) => {
+  const filePath = commandLine.find(arg => isSupportedFile(arg));
+  const file = readFileForTab(filePath);
+
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+
+    if (file) {
+      win.webContents.send("open-file-in-tab", file);
+    }
+  }
+});
+
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
@@ -58,17 +97,7 @@ ipcMain.on("window-maximize", () => {
 ipcMain.on("window-close", () => win.close());
 
 ipcMain.handle("get-startup-file", async () => {
-  if (!startupFile) return null;
-  if (!fs.existsSync(startupFile)) return null;
-
-  const content = fs.readFileSync(startupFile, "utf8");
-
-  return {
-    path: startupFile,
-    name: path.basename(startupFile),
-    content,
-    lastSavedContent: content
-  };
+  return readFileForTab(startupFile);
 });
 
 ipcMain.handle("open-file", async () => {
@@ -82,15 +111,7 @@ ipcMain.handle("open-file", async () => {
 
   if (result.canceled) return null;
 
-  const filePath = result.filePaths[0];
-  const content = fs.readFileSync(filePath, "utf8");
-
-  return {
-    path: filePath,
-    name: path.basename(filePath),
-    content,
-    lastSavedContent: content
-  };
+  return readFileForTab(result.filePaths[0]);
 });
 
 ipcMain.handle("save-file", async (_, file) => {

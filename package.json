@@ -1,6 +1,6 @@
 {
   "name": "zen-notepad",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Zen Notepad",
   "main": "main.js",
   "scripts": {
@@ -10,6 +10,7 @@
   "build": {
     "appId": "com.zen.notepad",
     "productName": "Zen Notepad",
+    "artifactName": "Zen Notepad Installer ${version}.${ext}",
     "win": {
       "target": "nsis",
       "fileAssociations": [
