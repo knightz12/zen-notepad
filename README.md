@@ -49,6 +49,10 @@ It is designed for users who want a minimal editor without the complexity of lar
 * CSS
 * JavaScript
 
+<img width="1096" height="695" alt="Screenshot 2026-05-06 111131" src="https://github.com/user-attachments/assets/c04cae3d-deac-4ac9-a763-977603a4bace" />
+<img width="1092" height="695" alt="Screenshot 2026-05-06 112430" src="https://github.com/user-attachments/assets/5a410db1-f0b3-493c-9700-3e4feb3a745c" />
+<img width="1090" height="694" alt="Screenshot 2026-05-06 111115" src="https://github.com/user-attachments/assets/8705bf69-0718-48fc-8944-702e6713f927" />
+
 ## Download
 
 Latest releases:
@@ -59,6 +63,5 @@ https://github.com/knightz12/zen-notepad/releases
 Source code:
 https://github.com/knightz12/zen-notepad
 
-<img width="1096" height="695" alt="Screenshot 2026-05-06 111131" src="https://github.com/user-attachments/assets/c04cae3d-deac-4ac9-a763-977603a4bace" />
-<img width="1092" height="695" alt="Screenshot 2026-05-06 112430" src="https://github.com/user-attachments/assets/5a410db1-f0b3-493c-9700-3e4feb3a745c" />
-<img width="1090" height="694" alt="Screenshot 2026-05-06 111115" src="https://github.com/user-attachments/assets/8705bf69-0718-48fc-8944-702e6713f927" />
+## Virus Total
+https://www.virustotal.com/gui/url/8ab79bd534c0de2aeb6d76515e415ae404a4c0cf6f1817b4b3ceea18cee7145d
