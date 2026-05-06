@@ -26,7 +26,7 @@ Built with Electron, Zen Notepad keeps the simplicity of classic Notepad while a
 * Ctrl + F → Find
 * Ctrl + H → Replace
 * Ctrl + W → Close Tab
-* Ctrl + P → Pin Tab
+* Ctrl + P → Pin/Unpin Sidebar
 * Ctrl + Tab → Next Tab
 * Ctrl + Shift + Tab → Previous Tab
 
