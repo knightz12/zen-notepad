@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld("zenAPI", {
 
   openFile: () => ipcRenderer.invoke("open-file"),
   saveFile: (file) => ipcRenderer.invoke("save-file", file),
-  saveSession: (data) => ipcRenderer.invoke("save-session"),
+  saveSession: (data) => ipcRenderer.invoke("save-session", data),
   loadSession: () => ipcRenderer.invoke("load-session"),
 
   getStartupFile: () => ipcRenderer.invoke("get-startup-file")

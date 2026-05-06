@@ -26,9 +26,13 @@
 
     <main class="main">
       <div class="window-buttons">
-        <button onclick="window.zenAPI.minimize()">—</button>
-        <button onclick="window.zenAPI.maximize()">□</button>
-        <button onclick="window.zenAPI.close()">✕</button>
+        <button class="win-btn min-btn" onclick="window.zenAPI.minimize()">—</button>
+
+        <button class="win-btn max-btn" onclick="window.zenAPI.maximize()">
+          <span></span>
+        </button>
+        
+        <button class="win-btn close-btn" onclick="window.zenAPI.close()">✕</button>
       </div>
 
       <div class="topbar">

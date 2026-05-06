@@ -375,23 +375,27 @@ const btnCancel = document.getElementById("confirmCancel");
 
 let pendingClose = null;
 
+function normalizeText(text) {
+  return (text ?? "").replace(/\r\n/g, "\n");
+}
+
 function hasUnsaved() {
+  saveCurrentToMemory();
+
   const current = files[currentIndex];
   if (!current) return false;
 
-  saveCurrentToMemory();
-  updateUntitledName();
+  const currentText = normalizeText(current.content);
+  const savedText = normalizeText(current.lastSavedContent);
 
-  if (!current.path && editor.value.trim().length > 0) {
-    return true;
-  }
-
-  return current.lastSavedContent !== editor.value;
+  return currentText !== savedText;
 }
 
 function showConfirm(action) {
   const current = files[currentIndex];
-  confirmText.textContent = `Do you want to save changes to ${current.name || "Untitled"}?`;
+
+  confirmText.textContent =
+    `Do you want to save changes to ${current.name || "Untitled"}?`;
 
   modal.classList.remove("hidden");
   pendingClose = action;
@@ -403,6 +407,7 @@ function hideConfirm() {
 
 btnSave.onclick = async () => {
   await saveFile();
+
   hideConfirm();
 
   if (pendingClose) {

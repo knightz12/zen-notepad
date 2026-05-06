@@ -192,6 +192,18 @@ textarea,
   border-radius: 6px;
 }
 
+/* maximize icon */
+.max-btn span {
+  width: 10px;
+  height: 10px;
+
+  border: 1.8px solid rgba(255,255,255,0.9);
+  border-radius: 1px;
+
+  display: block;
+  box-sizing: border-box;
+}
+
 .window-buttons button:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
