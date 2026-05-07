@@ -1,6 +1,6 @@
 {
   "name": "zen-notepad",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Zen Notepad",
   "main": "main.js",
   "scripts": {

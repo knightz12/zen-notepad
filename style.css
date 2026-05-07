@@ -22,7 +22,6 @@ textarea,
 .pin-btn,
 .window-buttons,
 .sidebar,
-.file-title-input,
 .tab-title {
   -webkit-app-region: no-drag;
 }
@@ -231,15 +230,28 @@ textarea,
   background: transparent;
   display: flex;
   align-items: center;
-  padding: 0 100px 0 6px;
+  gap: 6px;
+  padding: 0 6px;
   margin-bottom: 4px;
+  justify-content: space-between;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  margin-right: 110px; /* avoid window buttons */
 }
 
 .file-title-input {
-  flex: 1;
+  width: 10px;
+  min-width: 80px;
+  max-width: none;
+
+  flex-shrink: 0;
 
   height: 22px;
-
   background: transparent;
   border: none;
   outline: none;
@@ -248,10 +260,12 @@ textarea,
   font-size: 11px;
   font-family: "Segoe UI", sans-serif;
 
-  opacity: 0.95;
-
   padding: 0 8px;
   border-radius: 8px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   -webkit-app-region: no-drag;
 }
@@ -423,9 +437,11 @@ textarea,
   min-width: 0;
   padding: 0 4px;
 
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
+
+  padding-right: 12px;
 
   pointer-events: auto;
 }
@@ -787,4 +803,12 @@ textarea,
 .find-inside-btn:hover {
   background: rgba(255,255,255,0.1);
   color: white;
+}
+
+.file-title-input[readonly] {
+  cursor: default;
+}
+
+.file-title-input:not([readonly]) {
+  background: rgba(255,255,255,0.08);
 }

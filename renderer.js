@@ -18,6 +18,7 @@ fileName.addEventListener("input", () => {
   if (activeTitle) {
     activeTitle.value = current.name || "Untitled.txt";
   }
+  autoSizeTitle();
 });
 
 fileName.addEventListener("blur", () => {
@@ -26,8 +27,8 @@ fileName.addEventListener("blur", () => {
 
   let value = fileName.value.trim().replace(/[\\/:*?"<>|]/g, "");
 
-  if (value && !value.includes(".")) {
-    value += ".txt";
+  if (value && !/\.[^.\s]+$/.test(value)) {
+  value = value.replace(/\.+$/, "") + ".txt";
   }
 
   current.name = value; // keep empty allowed
@@ -201,6 +202,7 @@ function render() {
       // sync topbar
       if (index === currentIndex) {
         fileName.value = value;
+        autoSizeTitle();
       }
 
       // rename saved file too
@@ -226,6 +228,7 @@ function render() {
   const current = files[currentIndex];
 
   fileName.value = current.name ?? "Untitled.txt";
+  autoSizeTitle();
   editor.value = current.content || "";
 
   updateStatus();
@@ -236,6 +239,7 @@ function refreshTitlesOnly() {
   if (!current) return;
 
   fileName.value = current.name ?? "Untitled.txt";
+  autoSizeTitle();
 
   const activeTitle = tabs.querySelector(".tab.active .tab-title");
   if (activeTitle) {
@@ -818,4 +822,64 @@ function toggleReplace() {
 
   render();
   saveSession();
+});
+
+let titleClickTimer = null;
+
+fileName.readOnly = true;
+
+fileName.addEventListener("mousedown", (e) => {
+  if (!fileName.readOnly) return;
+
+  if (e.detail === 2) {
+    e.preventDefault();
+
+    fileName.readOnly = false;
+    fileName.focus();
+    fileName.select();
+
+    return;
+  }
+
+  titleClickTimer = setTimeout(() => {
+    titleClickTimer = null;
+  }, 250);
+});
+
+fileName.addEventListener("blur", () => {
+  fileName.readOnly = true;
+});
+
+fileName.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") fileName.blur();
+
+  if (e.key === "Escape") {
+    fileName.readOnly = true;
+    render();
+  }
+});
+
+function autoSizeTitle() {
+  const topbar = document.querySelector(".topbar");
+  const actions = document.querySelector(".topbar-actions");
+
+  if (!topbar || !actions) return;
+
+  fileName.style.width = "10px";
+
+  const maxWidth = Math.max(
+    80,
+    topbar.clientWidth - actions.offsetWidth - 150
+  );
+
+  const newWidth = Math.min(
+    fileName.scrollWidth + 20,
+    maxWidth
+  );
+
+  fileName.style.width = newWidth + "px";
+}
+
+window.addEventListener("resize", () => {
+  autoSizeTitle();
 });

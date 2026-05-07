@@ -37,8 +37,11 @@
 
       <div class="topbar">
         <input id="fileName" class="file-title-input" value="Untitled.txt" />
-        <button onclick="saveFile()">Save</button>
-        <button onclick="toggleWrap()" id="wrapBtn" class="wrap-btn">Wrap</button>
+
+        <div class="topbar-actions">
+          <button onclick="saveFile()">Save</button>
+          <button onclick="toggleWrap()" id="wrapBtn" class="wrap-btn">Wrap</button>
+        </div>
       </div>
 
       <div id="findBar" class="find-bar hidden">
