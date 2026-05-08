@@ -439,28 +439,19 @@ document.addEventListener("drop", async (e) => {
   // open real files dragged from Windows Explorer
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
     for (const droppedFile of e.dataTransfer.files) {
-      const filePath = window.zenAPI.getDroppedFilePath(droppedFile);
+      const filePath = droppedFile.path;
 
       if (!filePath) continue;
 
-      const dropped = await window.zenAPI.readDroppedFile(filePath);
+      const content = await window.zenAPI.readDroppedFile(filePath);
 
-      if (!dropped) continue;
-
-      const alreadyOpenIndex = files.findIndex(f => f.path === dropped.path);
-
-      if (alreadyOpenIndex !== -1) {
-        currentIndex = alreadyOpenIndex;
-        render();
-        saveSession();
-        return;
-      }
+      if (!content) continue;
 
       files.push(normalizeFile({
-        path: dropped.path,
-        name: dropped.name,
-        content: dropped.content,
-        lastSavedContent: dropped.content,
+        path: filePath,
+        name: filePath.split(/[\\/]/).pop(),
+        content,
+        lastSavedContent: content,
         customName: true
       }));
     }
@@ -584,18 +575,9 @@ async function openFile() {
   const file = await window.zenAPI.openFile();
   if (!file) return;
 
-  const alreadyOpenIndex = files.findIndex(f => f.path === file.path);
-
-  if (alreadyOpenIndex !== -1) {
-    currentIndex = alreadyOpenIndex;
-    render();
-    saveSession();
-    return;
-  }
-
   file.lastSavedContent = file.content;
 
-  files.push(normalizeFile(file));
+  files.push(file);
   currentIndex = files.length - 1;
 
   render();
@@ -1169,25 +1151,6 @@ window.addEventListener("resize", () => {
 window.zenAPI.onOpenDetachedTab((file) => {
   files = [normalizeFile(file)];
   currentIndex = 0;
-
-  render();
-  saveSession();
-});
-
-window.zenAPI.onFileUpdated((updatedFile) => {
-  const index = files.findIndex(f => f.path === updatedFile.path);
-
-  if (index === -1) return;
-
-  files[index].content = updatedFile.content;
-  files[index].lastSavedContent = updatedFile.content;
-  files[index].name = updatedFile.name;
-
-  if (index === currentIndex) {
-    editor.value = updatedFile.content;
-    fileName.value = updatedFile.name;
-    autoSizeTitle();
-  }
 
   render();
   saveSession();

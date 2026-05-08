@@ -230,16 +230,6 @@ ipcMain.handle("save-file", async (_, file) => {
 
   fs.writeFileSync(filePath, windowsText, "utf8");
 
-  BrowserWindow.getAllWindows().forEach((window) => {
-    if (!window.isDestroyed()) {
-      window.webContents.send("file-updated", {
-        path: filePath,
-        content: windowsText,
-        name: path.basename(filePath)
-      });
-    }
-  });
-
   win.setTitle(`${path.basename(filePath)} - Zen Notepad`);
 
   return {
@@ -287,11 +277,5 @@ ipcMain.handle("read-dropped-file", async (_, filePath) => {
   if (!filePath) return null;
   if (!fs.existsSync(filePath)) return null;
 
-  if (!isSupportedFile(filePath)) return null;
-
-  return {
-    path: filePath,
-    name: path.basename(filePath),
-    content: fs.readFileSync(filePath, "utf8")
-  };
+  return fs.readFileSync(filePath, "utf8");
 });

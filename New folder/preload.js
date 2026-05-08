@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("zenAPI", {
   openTabInNewWindow: (file) => ipcRenderer.invoke("open-tab-new-window", file),
@@ -10,11 +10,6 @@ contextBridge.exposeInMainWorld("zenAPI", {
 
   readDroppedFile: (filePath) =>
   ipcRenderer.invoke("read-dropped-file", filePath),
-
-  getDroppedFilePath: (file) => webUtils.getPathForFile(file),
-
-  onFileUpdated: (callback) =>
-  ipcRenderer.on("file-updated", (_, file) => callback(file)),
   
   minimize: () => ipcRenderer.send("window-minimize"),
 
