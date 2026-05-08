@@ -241,8 +241,7 @@ ipcMain.handle("save-file", async (_, file) => {
       window.webContents.send("file-updated", {
         path: filePath,
         content: windowsText,
-        name: path.basename(filePath),
-        lastSavedAt: new Date().toISOString()
+        name: path.basename(filePath)
       });
     }
   });

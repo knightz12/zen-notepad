@@ -157,8 +157,6 @@ function normalizeFile(file) {
     name: file.name || "Untitled.txt",
     content: file.content || "",
     lastSavedContent: file.lastSavedContent ?? file.content ?? "",
-    lastSavedAt: file.lastSavedAt || null,
-    lastEditedAt: file.lastEditedAt || null,
     customName: file.customName || false
   };
 }
@@ -172,10 +170,11 @@ function saveCurrentToMemory() {
 function updateUntitledName() {
   const current = files[currentIndex];
 
-  if (!current) return;
+  // already saved -> NEVER rename
+  if (!current || current.path) return;
 
-  // saved file = don't auto rename
-  if (current.path) return;
+  // user manually renamed top title1
+  if (current.customName) return;
 
   const firstLine = editor.value
     .split("\n")[0]
@@ -183,17 +182,11 @@ function updateUntitledName() {
     .replace(/[\\/:*?"<>|]/g, "")
     .substring(0, 40);
 
-  // if body is empty, reset auto-name mode
-  if (!firstLine) {
+  if (firstLine.length > 0) {
+    current.name = firstLine + ".txt";
+  } else {
     current.name = "Untitled.txt";
-    current.customName = false;
-    return;
   }
-
-  // only don't auto rename if user manually renamed title
-  if (current.customName) return;
-
-  current.name = firstLine + ".txt";
 }
 
 async function saveSession() {
@@ -269,8 +262,6 @@ function render() {
 
     // finish rename
     title.addEventListener("blur", () => {
-      const oldValue = file.name || "Untitled.txt";
-      
       title.readOnly = true;
       title.style.pointerEvents = "none";
 
@@ -287,7 +278,7 @@ function render() {
       }
 
       file.name = value;
-      file.customName = value !== oldValue;
+      file.customName = true;
 
       title.value = value;
 
@@ -600,16 +591,7 @@ async function openFile() {
   const alreadyOpenIndex = files.findIndex(f => f.path === file.path);
 
   if (alreadyOpenIndex !== -1) {
-    files[alreadyOpenIndex].content = file.content;
-
-    files[alreadyOpenIndex].lastSavedAt =
-      file.lastSavedAt || files[alreadyOpenIndex].lastSavedAt;
-
-    files[alreadyOpenIndex].lastSavedContent =
-      file.lastSavedContent || file.content;
-
     currentIndex = alreadyOpenIndex;
-
     render();
     saveSession();
     return;
@@ -736,7 +718,7 @@ function updateStatus() {
     statusRight.textContent = "";
   } else if (
     current.lastSavedAt &&
-    normalizeText(current.lastSavedContent) === normalizeText(current.content)
+    current.lastSavedContent === current.content
   ) {
     statusRight.textContent =
       formatStatusTime("Saved", current.lastSavedAt);
@@ -1156,18 +1138,8 @@ function toggleReplace() {
   const alreadyOpen = files.find(f => f.path === file.path);
 
   if (alreadyOpen) {
-    alreadyOpen.lastSavedAt =
-      file.lastSavedAt || alreadyOpen.lastSavedAt;
-
-    alreadyOpen.lastSavedContent =
-      file.lastSavedContent || file.content;
-
-    alreadyOpen.content = file.content;
-
     currentIndex = files.indexOf(alreadyOpen);
-
     render();
-    saveSession();
     return;
   }
 
@@ -1253,7 +1225,6 @@ window.zenAPI.onFileUpdated((updatedFile) => {
 
   files[index].content = updatedFile.content;
   files[index].lastSavedContent = updatedFile.content;
-  files[index].lastSavedAt = updatedFile.lastSavedAt;
   files[index].name = updatedFile.name;
 
   if (index === currentIndex) {
@@ -1280,48 +1251,3 @@ window.zenAPI.onOpenEmptyWindow(() => {
   render();
   saveSession();
 });
-
-function hasUnsavedAt(index) {
-  const file = files[index];
-  if (!file) return false;
-
-  return normalizeText(file.content) !== normalizeText(file.lastSavedContent);
-}
-
-function closeAllTabs() {
-  saveCurrentToMemory();
-
-  let index = 0;
-
-  const closeNext = () => {
-    if (index >= files.length) {
-      files = [normalizeFile({
-        path: null,
-        name: "Untitled.txt",
-        content: "",
-        lastSavedContent: "",
-        customName: false
-      })];
-
-      currentIndex = 0;
-      render();
-      saveSession();
-      return;
-    }
-
-    currentIndex = index;
-    render();
-
-    if (hasUnsavedAt(index)) {
-      showConfirm(() => {
-        files.splice(index, 1);
-        closeNext();
-      });
-    } else {
-      files.splice(index, 1);
-      closeNext();
-    }
-  };
-
-  closeNext();
-}

@@ -120,7 +120,7 @@ textarea,
 .tabs {
   margin-top: 6px;
   overflow-y: auto;
-  height: calc(100vh - 175px);
+  height: calc(100vh - 140px);
 }
 
 .tab {
@@ -818,32 +818,4 @@ textarea,
 
 .file-title-input:not([readonly]) {
   background: rgba(255,255,255,0.08);
-}
-
-.close-all-btn {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  width: calc(100% - 16px);
-  height: 32px;
-
-  border: none;
-  border-radius: 10px;
-
-  background: #232334;
-  color: white;
-
-  font-size: 14px;
-  font-weight: 600;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  cursor: pointer;
-  transition: 0.15s ease;
-}
-
-.close-all-btn:hover {
-  background: #2d2d42;
 }
