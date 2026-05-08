@@ -960,12 +960,37 @@ btnCancel.onclick = () => {
 async function handleClose() {
   const windowCount = await window.zenAPI.getWindowCount();
 
-  // only prompt if 2 or more windows are open
-  if (windowCount > 1 && hasUnsaved()) {
-    showConfirm(() => window.zenAPI.close());
-  } else {
+  // only 1 window = close directly
+  if (windowCount <= 1) {
     window.zenAPI.close();
+    return;
   }
+
+  saveCurrentToMemory();
+
+  let index = 0;
+
+  const closeNext = () => {
+    if (index >= files.length) {
+      window.zenAPI.close();
+      return;
+    }
+
+    currentIndex = index;
+    render();
+
+    if (hasUnsavedAt(index)) {
+      showConfirm(() => {
+        files.splice(index, 1);
+        closeNext();
+      });
+    } else {
+      files.splice(index, 1);
+      closeNext();
+    }
+  };
+
+  closeNext();
 }
 
 /* ---------------- FIND FEATURE ---------------- */
