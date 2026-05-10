@@ -20,6 +20,22 @@ contextBridge.exposeInMainWorld("zenAPI", {
 
   onFileUpdated: (callback) =>
   ipcRenderer.on("file-updated", (_, file) => callback(file)),
+
+  setTabClipboard: (data) => ipcRenderer.invoke("set-tab-clipboard", data),
+  getTabClipboard: () => ipcRenderer.invoke("get-tab-clipboard"),
+  clearTabClipboard: () => ipcRenderer.invoke("clear-tab-clipboard"),
+
+  notifyCutPasted: (cutId) =>
+    ipcRenderer.invoke("notify-cut-pasted", cutId),
+
+  onCutPasted: (callback) =>
+    ipcRenderer.on("cut-pasted", (_, cutId) => callback(cutId)),
+
+  notifyCopyStarted: () =>
+    ipcRenderer.invoke("notify-copy-started"),
+
+  onCopyStarted: (callback) =>
+    ipcRenderer.on("copy-started", () => callback()),
   
   minimize: () => ipcRenderer.send("window-minimize"),
 

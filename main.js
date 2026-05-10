@@ -5,6 +5,7 @@ const path = require("path");
 let win;
 let startupFile = null;
 let draggedTabFile = null;
+let tabClipboard = null;
 
 const sessionPath = path.join(app.getPath("userData"), "session.json");
 
@@ -308,4 +309,32 @@ ipcMain.handle("read-dropped-file", async (_, filePath) => {
 ipcMain.handle("open-empty-window", async () => {
   createWindow(null, true);
   return true;
+});
+
+ipcMain.handle("set-tab-clipboard", (_, data) => {
+  tabClipboard = data;
+});
+
+ipcMain.handle("get-tab-clipboard", () => {
+  return tabClipboard;
+});
+
+ipcMain.handle("clear-tab-clipboard", () => {
+  tabClipboard = null;
+});
+
+ipcMain.handle("notify-cut-pasted", (_, cutId) => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send("cut-pasted", cutId);
+    }
+  });
+});
+
+ipcMain.handle("notify-copy-started", () => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send("copy-started");
+    }
+  });
 });

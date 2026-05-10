@@ -1,6 +1,10 @@
 let files = [];
 let currentIndex = 0;
 let statusTimer;
+let cutTab = null;
+let cutTabId = null;
+let copiedTab = null;
+let selectedTabIndex = 0;
 
 const editor = document.getElementById("editor");
 const tabs = document.getElementById("tabs");
@@ -159,23 +163,30 @@ function normalizeFile(file) {
     lastSavedContent: file.lastSavedContent ?? file.content ?? "",
     lastSavedAt: file.lastSavedAt || null,
     lastEditedAt: file.lastEditedAt || null,
-    customName: file.customName || false
+    customName: file.customName || false,
+    renamedUnsaved: file.renamedUnsaved || false
   };
 }
 
 function saveCurrentToMemory() {
   if (files[currentIndex]) {
     files[currentIndex].content = editor.value;
+
+    if (files[currentIndex].renamedUnsaved) {
+      files[currentIndex].renamedUnsaved = true;
+    }
   }
 }
 
 function updateUntitledName() {
   const current = files[currentIndex];
-
   if (!current) return;
 
   // saved file = don't auto rename
   if (current.path) return;
+
+  // manually renamed tab = don't auto rename
+  if (current.customName || current.renamedUnsaved) return;
 
   const firstLine = editor.value
     .split("\n")[0]
@@ -183,15 +194,11 @@ function updateUntitledName() {
     .replace(/[\\/:*?"<>|]/g, "")
     .substring(0, 40);
 
-  // if body is empty, reset auto-name mode
   if (!firstLine) {
     current.name = "Untitled.txt";
     current.customName = false;
     return;
   }
-
-  // only don't auto rename if user manually renamed title
-  if (current.customName) return;
 
   current.name = firstLine + ".txt";
 }
@@ -206,15 +213,194 @@ async function saveSession() {
 function render() {
   tabs.innerHTML = "";
 
+  // remove old context menus before re-render
+  document.querySelectorAll(".tab-menu").forEach(menu => menu.remove());
+
   files.forEach((file, index) => {
     const tab = document.createElement("div");
+    
     tab.className = "tab" + (index === currentIndex ? " active" : "");
+    if (file.id === cutTabId) {
+      tab.classList.add("cutting");
+    }
+
+    if (index === selectedTabIndex) {
+      tab.classList.add("selected");
+    }
 
     const title = document.createElement("input");
-
     title.className = "tab-title";
     title.value = file.name || "Untitled.txt";
     title.readOnly = true;
+
+    const menu = document.createElement("div");
+    menu.className = "tab-menu";
+
+    const cutBtn = document.createElement("button");
+    cutBtn.textContent = "Cut";
+
+    cutBtn.onclick = async (e) => {
+      e.stopPropagation();
+
+      saveCurrentToMemory();
+
+      cutTab = {
+        file: normalizeFile({
+          ...files[index],
+          content: files[index].content
+        }),
+        index,
+        windowId: WINDOW_ID
+      };
+
+      await window.zenAPI.setTabClipboard({
+        type: "cut",
+        file: cutTab.file,
+        windowId: cutTab.windowId,
+        index: cutTab.index
+      });
+
+      copiedTab = null;
+      cutTabId = files[index].id;
+
+      render();
+
+      closeAllTabMenus();
+    };
+
+    const copyBtn = document.createElement("button");
+    copyBtn.textContent = "Copy";
+
+    copyBtn.onclick = async (e) => {
+      e.stopPropagation();
+
+      copiedTab = normalizeFile({
+        ...files[index],
+        id: makeTabId(),
+        name: files[index].name || "Untitled.txt"
+      });
+
+      await window.zenAPI.setTabClipboard({
+        type: "copy",
+        file: copiedTab
+      });
+
+      await window.zenAPI.notifyCopyStarted();
+
+      cutTab = null;
+      cutTabId = null;
+      render();
+
+      closeAllTabMenus();
+    };
+
+    const renameBtn = document.createElement("button");
+    renameBtn.textContent = "Rename";
+
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      closeAllTabMenus();
+
+      title.readOnly = false;
+      title.style.pointerEvents = "auto";
+
+      setTimeout(() => {
+        title.focus();
+        title.select();
+      }, 0);
+    };
+
+    const openNewWindowBtn = document.createElement("button");
+    openNewWindowBtn.className = "small-menu-btn";
+    openNewWindowBtn.textContent = "Open in new window";
+
+    openNewWindowBtn.onclick = async (e) => {
+      e.stopPropagation();
+
+      saveCurrentToMemory();
+
+      const fileToMove = normalizeFile({
+        ...files[index],
+        content: index === currentIndex ? editor.value : files[index].content
+      });
+
+      await window.zenAPI.openTabInNewWindow(fileToMove);
+
+      files.splice(index, 1);
+
+      if (files.length === 0) {
+        files.push(normalizeFile({
+          path: null,
+          name: "Untitled.txt",
+          content: "",
+          lastSavedContent: "",
+          customName: false
+        }));
+        currentIndex = 0;
+      } else {
+        currentIndex = Math.max(0, Math.min(currentIndex, files.length - 1));
+      }
+
+      closeAllTabMenus();
+      render();
+      saveSession();
+    };
+
+    menu.appendChild(cutBtn);
+    menu.appendChild(copyBtn);
+    menu.appendChild(renameBtn);
+    menu.appendChild(openNewWindowBtn);
+    document.body.appendChild(menu);
+
+    tab.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      closeAllTabMenus();
+
+      menu.classList.add("show");
+      sidebar.classList.add("menu-open");
+      menu.style.left = e.clientX + "px";
+      menu.style.top = e.clientY + "px";
+    });
+
+    title.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") title.blur();
+
+      if (e.key === "Escape") {
+        title.readOnly = true;
+        title.value = file.name || "Untitled.txt";
+        editor.focus();
+      }
+    });
+
+    title.addEventListener("blur", () => {
+      if (title.readOnly) return;
+
+      title.readOnly = true;
+
+      let value = title.value
+        .trim()
+        .replace(/[\\/:*?"<>|]/g, "");
+
+      if (!value) value = "Untitled.txt";
+      if (!value.includes(".")) value += ".txt";
+
+      file.name = value;
+      file.customName = true;
+      title.value = value;
+
+      file.content = index === currentIndex ? editor.value : file.content;
+      file.lastEditedAt = new Date().toISOString();
+      file.renamedUnsaved = true;
+
+      if (index === currentIndex) {
+        fileName.value = value;
+        autoSizeTitle();
+      }
+
+      saveSession();
+    });
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "tab-close";
@@ -227,204 +413,124 @@ function render() {
     };
 
     tab.addEventListener("click", (e) => {
-      // don't switch while renaming
       if (e.target === title && !title.readOnly) return;
-
       switchTab(index);
     });
 
-    title.addEventListener("mousedown", (e) => {
-      if (e.button === 2) {
-        e.preventDefault();
-      }
-    });
-
-    // right click rename
-    title.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-
-      title.readOnly = false;
-      title.style.pointerEvents = "auto";
-
-      setTimeout(() => {
-        title.focus();
-        title.select();
-      }, 0);
-    });
-
-    title.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        title.blur();
-      }
-
-      if (e.key === "Escape") {
-        title.readOnly = true;
-        title.style.pointerEvents = "none";
-
-        title.value = file.name || "Untitled.txt";
-
-        editor.focus();
-      }
-    });
-
-    // finish rename
-    title.addEventListener("blur", () => {
-      const oldValue = file.name || "Untitled.txt";
-      
-      title.readOnly = true;
-      title.style.pointerEvents = "none";
-
-      let value = title.value
-        .trim()
-        .replace(/[\\/:*?"<>|]/g, "");
-
-      if (!value) {
-        value = "Untitled.txt";
-      }
-
-      if (!value.includes(".")) {
-        value += ".txt";
-      }
-
-      file.name = value;
-      file.customName = value !== oldValue;
-
-      title.value = value;
-
-      // sync topbar
-      if (index === currentIndex) {
-        fileName.value = value;
-        autoSizeTitle();
-      }
-
-      // rename saved file too
-      if (file.path) {
-        const dir = file.path
-          .split(/[\\/]/)
-          .slice(0, -1)
-          .join("\\");
-
-        file.oldPath = file.path;
-        file.path = dir + "\\" + value;
-      }
-
-      saveSession();
-    });
     tab.draggable = true;
 
-tab.addEventListener("dragstart", (e) => {
-  saveCurrentToMemory();
+    tab.addEventListener("dragstart", (e) => {
+      saveCurrentToMemory();
 
-  e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData("text/plain", index.toString());
-  e.dataTransfer.setData("zen-window-id", WINDOW_ID);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", index.toString());
+      e.dataTransfer.setData("zen-window-id", WINDOW_ID);
 
-  const fileToDrag = { ...files[index] };
+      const fileToDrag = { ...files[index] };
 
-  if (index === currentIndex) {
-    fileToDrag.content = editor.value;
-  }
+      if (index === currentIndex) {
+        fileToDrag.content = editor.value;
+      }
 
-  window.zenAPI.startTabDrag(fileToDrag);
-});
+      window.zenAPI.startTabDrag(fileToDrag);
+    });
 
-tab.addEventListener("dragend", async (e) => {
-  const outside =
-    e.clientX < 0 ||
-    e.clientY < 0 ||
-    e.clientX > window.innerWidth ||
-    e.clientY > window.innerHeight;
+    tab.addEventListener("dragend", async (e) => {
+      const outside =
+        e.clientX < 0 ||
+        e.clientY < 0 ||
+        e.clientX > window.innerWidth ||
+        e.clientY > window.innerHeight;
 
-  if (!outside) return;
+      if (!outside) return;
 
-  setTimeout(async () => {
-    const stillDragging = await window.zenAPI.takeDraggedTab();
+      setTimeout(async () => {
+        const stillDragging = await window.zenAPI.takeDraggedTab();
 
-    // another window received the tab
-    if (!stillDragging) {
-      if (files.length === 1) {
-        window.zenAPI.close();
+        if (!stillDragging) {
+          if (files.length === 1) {
+            window.zenAPI.close();
+            return;
+          }
+
+          files.splice(index, 1);
+
+          if (index < currentIndex) currentIndex--;
+          if (index === currentIndex) {
+            currentIndex = Math.max(0, currentIndex - 1);
+          }
+
+          currentIndex = Math.max(
+            0,
+            Math.min(currentIndex, files.length - 1)
+          );
+
+          render();
+          saveSession();
+          return;
+        }
+
+        if (files.length === 1) return;
+
+        await window.zenAPI.openTabInNewWindow({ ...stillDragging });
+
+        files.splice(index, 1);
+
+        currentIndex = Math.max(
+          0,
+          Math.min(currentIndex, files.length - 1)
+        );
+
+        render();
+        saveSession();
+      }, 150);
+    });
+
+    tab.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+
+    tab.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const toIndex = index;
+      const sourceWindow = e.dataTransfer.getData("zen-window-id");
+      const fromIndex = Number(e.dataTransfer.getData("text/plain"));
+
+      if (
+        sourceWindow === WINDOW_ID &&
+        !Number.isNaN(fromIndex) &&
+        files[fromIndex]
+      ) {
+        if (fromIndex === toIndex) return;
+
+        saveCurrentToMemory();
+
+        const movedFile = files.splice(fromIndex, 1)[0];
+        files.splice(toIndex, 0, movedFile);
+
+        currentIndex = toIndex;
+
+        render();
+        saveSession();
         return;
       }
 
-      files.splice(index, 1);
+      const movedFile = await window.zenAPI.takeDraggedTab();
+      if (!movedFile) return;
 
-      if (index < currentIndex) currentIndex--;
-      if (index === currentIndex) {
-        currentIndex = Math.max(0, currentIndex - 1);
-      }
+      const normalized = normalizeFile(movedFile);
 
-      currentIndex = Math.max(
-        0,
-        Math.min(currentIndex, files.length - 1)
-      );
+      if (files.some(f => f.id === normalized.id)) return;
+
+      files.splice(toIndex, 0, normalized);
+      currentIndex = toIndex;
 
       render();
       saveSession();
-      return;
-    }
-
-    // dropped outside, not on another window
-    if (files.length === 1) return;
-
-    await window.zenAPI.openTabInNewWindow({ ...stillDragging });
-
-    files.splice(index, 1);
-
-    currentIndex = Math.max(
-      0,
-      Math.min(currentIndex, files.length - 1)
-    );
-
-    render();
-    saveSession();
-  }, 150);
-});
-
-tab.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-});
-
-tab.addEventListener("drop", async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-
-  const toIndex = index;
-  const sourceWindow = e.dataTransfer.getData("zen-window-id");
-  const fromIndex = Number(e.dataTransfer.getData("text/plain"));
-
-  // SAME WINDOW reorder only
-  if (sourceWindow === WINDOW_ID && !Number.isNaN(fromIndex) && files[fromIndex]) {
-    if (fromIndex === toIndex) return;
-
-    saveCurrentToMemory();
-
-    const movedFile = files.splice(fromIndex, 1)[0];
-    files.splice(toIndex, 0, movedFile);
-
-    currentIndex = toIndex;
-
-    render();
-    saveSession();
-    return;
-  }
-
-  // DIFFERENT WINDOW insert at this position
-  const file = await window.zenAPI.takeDraggedTab();
-  if (!file) return;
-
-  const normalized = normalizeFile(file);
-
-  if (files.some(f => f.id === normalized.id)) return;
-
-  files.splice(toIndex, 0, normalized);
-  currentIndex = toIndex;
-
-  render();
-  saveSession();
-});
-
+    });
 
     tab.appendChild(title);
     tab.appendChild(closeBtn);
@@ -434,12 +540,166 @@ tab.addEventListener("drop", async (e) => {
 
   const current = files[currentIndex];
 
-  fileName.value = current.name ?? "Untitled.txt";
+  fileName.value = current?.name ?? "Untitled.txt";
   autoSizeTitle();
-  editor.value = current.content || "";
+  editor.value = current?.content || "";
 
   updateStatus();
 }
+
+const sidebar = document.getElementById("sidebar");
+
+sidebar.addEventListener("contextmenu", (e) => {
+  if (e.target.closest(".tab")) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  closeAllTabMenus();
+
+  document
+    .querySelectorAll(".sidebar-paste-menu")
+    .forEach(m => m.remove());
+
+  const menu = document.createElement("div");
+  menu.className = "tab-menu sidebar-paste-menu show";
+
+  const pasteBtn = document.createElement("button");
+  pasteBtn.textContent = "Paste";
+  pasteBtn.disabled = false;
+
+  pasteBtn.onclick = async () => {
+
+    const shared = await window.zenAPI.getTabClipboard();
+
+    if (shared?.type === "copy") {
+      copiedTab = shared.file;
+      cutTab = null;
+    }
+
+    if (shared?.type === "cut") {
+      cutTab = {
+        file: shared.file,
+        windowId: shared.windowId,
+        index: shared.index
+      };
+
+      copiedTab = null;
+    }
+
+    // CUT paste
+    if (cutTab) {
+
+      const pasted = normalizeFile({
+        ...cutTab.file,
+        id: makeTabId()
+      });
+
+      files.push(pasted);
+
+      // remove original ONLY after paste
+      if (cutTab.windowId === WINDOW_ID) {
+        files.splice(cutTab.index, 1);
+
+        if (currentIndex >= files.length) {
+          currentIndex = files.length - 1;
+        }
+
+        if (files.length === 0) {
+          files.push(normalizeFile({
+            path: null,
+            name: "Untitled.txt",
+            content: "",
+            lastSavedContent: "",
+            customName: false
+          }));
+
+          currentIndex = 0;
+        }
+      }
+
+      currentIndex = files.length - 1;
+      selectedTabIndex = currentIndex;
+
+      await window.zenAPI.notifyCutPasted(cutTab.file.id);
+      await window.zenAPI.clearTabClipboard();
+
+      cutTab = null;
+      cutTabId = null;
+
+      closeAllTabMenus();
+      render();
+      saveSession();
+      return;
+    }
+
+    // COPY paste
+    if (!copiedTab) return;
+
+    const pasted = normalizeFile({
+      ...copiedTab,
+      id: makeTabId(),
+      name: getCopyTabName(copiedTab.name || "Untitled.txt")
+    });
+
+    // copied tabs should always be unsaved
+    pasted.path = null;
+    pasted.lastSavedContent = "";
+    pasted.lastSavedAt = null;
+
+    files.push(pasted);
+
+    currentIndex = files.length - 1;
+    selectedTabIndex = currentIndex;
+
+    closeAllTabMenus();
+    render();
+    saveSession();
+  };
+
+  menu.appendChild(pasteBtn);
+  document.body.appendChild(menu);
+
+  menu.style.left = e.clientX + "px";
+  menu.style.top = e.clientY + "px";
+
+  sidebar.classList.add("menu-open");
+});
+
+function getCopyTabName(originalName) {
+  const existingNames = files.map(f => f.name);
+
+  // first copy
+  let name = "Copy - " + originalName;
+
+  if (!existingNames.includes(name)) {
+    return name;
+  }
+
+  let count = 2;
+
+  while (true) {
+    name = `Copy(${count}) - ${originalName}`;
+
+    if (!existingNames.includes(name)) {
+      return name;
+    }
+
+    count++;
+  }
+}
+
+function closeAllTabMenus() {
+  document
+    .querySelectorAll(".tab-menu")
+    .forEach(menu => menu.classList.remove("show"));
+
+  sidebar.classList.remove("menu-open");
+}
+
+document.addEventListener("click", () => {
+  closeAllTabMenus();
+});
 
 document.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -567,6 +827,7 @@ function switchTab(index) {
   saveTabContent(oldIndex);
 
   currentIndex = index;
+  selectedTabIndex = index;
 
   render();
   saveSession();
@@ -574,7 +835,6 @@ function switchTab(index) {
 
 function newFile() {
   saveCurrentToMemory();
-  updateUntitledName();
 
   files.push(normalizeFile({
     path: null,
@@ -585,6 +845,7 @@ function newFile() {
   }));
 
   currentIndex = files.length - 1;
+  selectedTabIndex = currentIndex;
 
   render();
   saveSession();
@@ -689,6 +950,7 @@ async function saveFile() {
   current.name = saved.name;
   current.lastSavedContent = current.content;
   current.lastSavedAt = new Date().toISOString();
+  current.renamedUnsaved = false;
   delete current.oldPath;
 
   render();
@@ -767,7 +1029,6 @@ loadSession();
 /* ---------------- PIN SIDEBAR ADD-ON ---------------- */
 
 const pinBtn = document.getElementById("pinSidebar");
-const sidebar = document.getElementById("sidebar");
 
 if (pinBtn && sidebar) {
   let sidebarPinned = localStorage.getItem("sidebarPinned") === "true";
@@ -796,99 +1057,276 @@ if (pinBtn && sidebar) {
 
 /* ---------------- KEYBOARD SHORTCUTS ---------------- */
 
-document.addEventListener("keydown", (e) => {
-    const ctrl = e.ctrlKey || e.metaKey;
+document.addEventListener("keydown", async (e) => {
+  const ctrl = e.ctrlKey || e.metaKey;
 
-    // Ctrl + N = New
-    if (ctrl && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        newFile();
+  const typingInEditor =
+    document.activeElement === editor ||
+    document.activeElement === findInput ||
+    document.activeElement === replaceInput;
+
+  // Ctrl + N = New
+  if (ctrl && e.key.toLowerCase() === "n") {
+    e.preventDefault();
+    newFile();
+  }
+
+  // Ctrl + O = Open
+  if (ctrl && e.key.toLowerCase() === "o") {
+    e.preventDefault();
+    openFile();
+  }
+
+  // Ctrl + S = Save
+  if (ctrl && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    saveFile();
+  }
+
+  // Ctrl + C = Copy current tab
+  if (ctrl && e.key.toLowerCase() === "c" && !typingInEditor) {
+    e.preventDefault();
+
+    saveCurrentToMemory();
+
+    const file = files[currentIndex];
+    if (!file) return;
+
+    copiedTab = normalizeFile({
+      ...file,
+      id: makeTabId(),
+      name: file.name || "Untitled.txt",
+      content: file.content || ""
+    });
+
+    await window.zenAPI.setTabClipboard({
+      type: "copy",
+      file: copiedTab
+    });
+
+    await window.zenAPI.notifyCopyStarted();
+
+    cutTab = null;
+    cutTabId = null;
+    render();
+  }
+
+  // Ctrl + X = Cut current tab
+  if (ctrl && e.key.toLowerCase() === "x" && !typingInEditor) {
+    e.preventDefault();
+
+    saveCurrentToMemory();
+
+    const file = files[currentIndex];
+    if (!file) return;
+
+    cutTab = {
+      file: normalizeFile({
+        ...file,
+        content: file.content || ""
+      }),
+      index: currentIndex,
+      windowId: WINDOW_ID
+    };
+
+    await window.zenAPI.setTabClipboard({
+      type: "cut",
+      file: cutTab.file,
+      windowId: cutTab.windowId,
+      index: cutTab.index
+    });
+
+    copiedTab = null;
+    cutTabId = file.id;
+
+    render();
+  }
+
+  // Ctrl + V = Paste copied/cut tab
+  if (ctrl && e.key.toLowerCase() === "v" && !typingInEditor) {
+    e.preventDefault();
+
+    const shared = await window.zenAPI.getTabClipboard();
+
+    if (shared?.type === "copy") {
+      copiedTab = shared.file;
+      cutTab = null;
+      window.zenAPI.clearTabClipboard();
     }
 
-    // Ctrl + O = Open
-    if (ctrl && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        openFile();
+    if (shared?.type === "cut") {
+      cutTab = {
+        file: shared.file,
+        windowId: shared.windowId,
+        index: shared.index
+      };
+
+      copiedTab = null;
     }
 
-    // Ctrl + S = Save
-    if (ctrl && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        saveFile();
-    }
+    // CUT paste
+    if (cutTab) {
 
-    // Ctrl + F = Find
-    if (ctrl && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        openFind();
+      const pasted = normalizeFile({
+        ...cutTab.file,
+        id: makeTabId()
+      });
 
-        const replaceRow = document.getElementById("replaceRow");
-        if (replaceRow) replaceRow.classList.add("hidden");
+      files.push(pasted);
 
-        findInput.focus();
-        findInput.select();
-    }
+      // remove original ONLY after paste
+      if (cutTab.windowId === WINDOW_ID) {
+        files.splice(cutTab.index, 1);
 
-    // Ctrl + H = Open Find + Replace UI
-    if (ctrl && e.key.toLowerCase() === "h") {
-        e.preventDefault();
-        openFind();
-
-        const replaceRow = document.getElementById("replaceRow");
-        if (replaceRow) replaceRow.classList.remove("hidden");
-
-        replaceInput.focus();
-        replaceInput.select();
-    }
-
-    // Ctrl + W = Close Tab
-    if (ctrl && e.key.toLowerCase() === "w") {
-        e.preventDefault();
-        closeTab(currentIndex);
-    }
-
-    // Ctrl + Tab = Next Tab
-    if (ctrl && e.key === "Tab" && !e.shiftKey) {
-        e.preventDefault();
-        switchTab((currentIndex + 1) % files.length);
-    }
-
-    // Ctrl + Shift + Tab = Previous Tab
-    if (ctrl && e.key === "Tab" && e.shiftKey) {
-        e.preventDefault();
-        switchTab((currentIndex - 1 + files.length) % files.length);
-    }
-
-    // Ctrl + P = Pin sidebar
-    if (ctrl && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        const pinBtn = document.getElementById("pinSidebar");
-        if (pinBtn) pinBtn.click();
-    }
-
-    // ESC = close find
-    if (e.key === "Escape") {
-        closeFind();
-    }
-
-    // ENTER behavior inside find/replace
-    if (e.key === "Enter") {
-        if (document.activeElement === findInput) {
-            e.preventDefault();
-            findNext();
+        if (currentIndex >= files.length) {
+          currentIndex = files.length - 1;
         }
 
-        if (document.activeElement === replaceInput) {
-            e.preventDefault();
-            replaceOne();
+        if (files.length === 0) {
+          files.push(normalizeFile({
+            path: null,
+            name: "Untitled.txt",
+            content: "",
+            lastSavedContent: "",
+            customName: false
+          }));
+
+          currentIndex = 0;
         }
+      }
+
+      currentIndex = files.length - 1;
+      selectedTabIndex = currentIndex;
+
+      await window.zenAPI.notifyCutPasted(cutTab.file.id);
+
+      cutTab = null;
+      cutTabId = null;
+      window.zenAPI.clearTabClipboard();
+
+      render();
+      saveSession();
+      return;
     }
 
-    // Shift + Enter in replace = replace all
-    if (e.shiftKey && e.key === "Enter" && document.activeElement === replaceInput) {
-        e.preventDefault();
-        replaceAll();
+    // COPY paste
+    if (!copiedTab) return;
+
+    const pasted = normalizeFile({
+      ...copiedTab,
+      id: makeTabId(),
+      name: getCopyTabName(copiedTab.name || "Untitled.txt")
+    });
+
+    // copied tabs should always be unsaved
+    pasted.path = null;
+    pasted.lastSavedContent = "";
+    pasted.lastSavedAt = null;
+
+    files.push(pasted);
+
+    currentIndex = files.length - 1;
+    selectedTabIndex = currentIndex;
+
+    render();
+    saveSession();
+  }
+
+  // Ctrl + F = Find
+  if (ctrl && e.key.toLowerCase() === "f") {
+    e.preventDefault();
+    openFind();
+
+    const replaceRow = document.getElementById("replaceRow");
+    if (replaceRow) replaceRow.classList.add("hidden");
+
+    findInput.focus();
+    findInput.select();
+  }
+
+  // Ctrl + H = Find + Replace
+  if (ctrl && e.key.toLowerCase() === "h") {
+    e.preventDefault();
+    openFind();
+
+    const replaceRow = document.getElementById("replaceRow");
+    if (replaceRow) replaceRow.classList.remove("hidden");
+
+    replaceInput.focus();
+    replaceInput.select();
+  }
+
+  // Ctrl + W = Close Tab
+  if (ctrl && e.key.toLowerCase() === "w") {
+    e.preventDefault();
+    closeTab(currentIndex);
+  }
+
+  // Ctrl + Tab = Next Tab
+  if (ctrl && e.key === "Tab" && !e.shiftKey) {
+    e.preventDefault();
+    switchTab((currentIndex + 1) % files.length);
+  }
+
+  // Ctrl + Shift + Tab = Previous Tab
+  if (ctrl && e.key === "Tab" && e.shiftKey) {
+    e.preventDefault();
+    switchTab((currentIndex - 1 + files.length) % files.length);
+  }
+
+  // Ctrl + P = Pin sidebar
+  if (ctrl && e.key.toLowerCase() === "p") {
+    e.preventDefault();
+    const pinBtn = document.getElementById("pinSidebar");
+    if (pinBtn) pinBtn.click();
+  }
+
+  // F2 = Rename selected/current tab
+  if (e.key === "F2") {
+    e.preventDefault();
+
+    const activeTab = tabs.querySelector(".tab.active");
+    if (!activeTab) return;
+
+    const title = activeTab.querySelector(".tab-title");
+    if (!title) return;
+
+    title.readOnly = false;
+    title.style.pointerEvents = "auto";
+
+    setTimeout(() => {
+      title.focus();
+      title.select();
+    }, 0);
+  }
+
+  // ESC = close find
+  if (e.key === "Escape") {
+    closeFind();
+  }
+
+  // ENTER behavior inside find/replace
+  if (e.key === "Enter") {
+    if (document.activeElement === findInput) {
+      e.preventDefault();
+      findNext();
     }
+
+    if (document.activeElement === replaceInput) {
+      e.preventDefault();
+      replaceOne();
+    }
+  }
+
+  // Shift + Enter in replace = replace all
+  if (
+    e.shiftKey &&
+    e.key === "Enter" &&
+    document.activeElement === replaceInput
+  ) {
+    e.preventDefault();
+    replaceAll();
+  }
 });
 
 /* ---------------- UNSAVED CONFIRM ---------------- */
@@ -911,10 +1349,9 @@ function hasUnsaved() {
   const current = files[currentIndex];
   if (!current) return false;
 
-  const currentText = normalizeText(current.content);
-  const savedText = normalizeText(current.lastSavedContent);
+  if (current.renamedUnsaved) return true;
 
-  return currentText !== savedText;
+  return normalizeText(current.content) !== normalizeText(current.lastSavedContent);
 }
 
 function showConfirm(action) {
@@ -1310,6 +1747,8 @@ function hasUnsavedAt(index) {
   const file = files[index];
   if (!file) return false;
 
+  if (file.renamedUnsaved) return true;
+
   return normalizeText(file.content) !== normalizeText(file.lastSavedContent);
 }
 
@@ -1350,3 +1789,41 @@ function closeAllTabs() {
 
   closeNext();
 }
+
+window.zenAPI.onCutPasted((cutId) => {
+  const index = files.findIndex(f => f.id === cutId);
+
+  // remove the original cut tab from the original window
+  if (index !== -1) {
+    files.splice(index, 1);
+
+    if (files.length === 0) {
+      files.push(normalizeFile({
+        path: null,
+        name: "Untitled.txt",
+        content: "",
+        lastSavedContent: "",
+        customName: false
+      }));
+
+      currentIndex = 0;
+    } else {
+      if (index < currentIndex) currentIndex--;
+      if (currentIndex >= files.length) {
+        currentIndex = files.length - 1;
+      }
+    }
+  }
+
+  cutTab = null;
+  cutTabId = null;
+
+  render();
+  saveSession();
+});
+
+window.zenAPI.onCopyStarted(() => {
+  cutTab = null;
+  cutTabId = null;
+  render();
+});
