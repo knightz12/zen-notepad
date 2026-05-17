@@ -124,6 +124,10 @@ fileName.addEventListener("blur", () => {
 async function loadSession() {
   const params = new URLSearchParams(window.location.search);
 
+  if (params.get("detached") === "1") {
+    return;
+  }
+
   if (params.get("empty") === "1") {
     files = [normalizeFile({
       path: null,
@@ -1167,8 +1171,6 @@ editor.addEventListener("scroll", () => {
 
 setInterval(saveSession, 2000);
 
-loadSession();
-
 /* ---------------- PIN SIDEBAR ADD-ON ---------------- */
 
 const pinBtn = document.getElementById("pinSidebar");
@@ -2088,3 +2090,5 @@ window.zenAPI.onCopyStarted(() => {
   cutTabId = null;
   render();
 });
+
+loadSession();
