@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const fileWatchers = new Map();
 
 let win;
 let startupFile = null;
@@ -40,6 +41,24 @@ if (!gotTheLock) {
   app.quit();
 }
 
+function watchFile(filePath) {
+  if (!filePath) return;
+  if (fileWatchers.has(filePath)) return;
+  if (!fs.existsSync(filePath)) return;
+
+  const watcher = fs.watch(filePath, { persistent: false }, () => {
+    setTimeout(() => {
+      if (!fs.existsSync(filePath)) return;
+
+      const content = fs.readFileSync(filePath, "utf8");
+      const stat = fs.statSync(filePath);
+
+    }, 100);
+  });
+
+  fileWatchers.set(filePath, watcher);
+}
+
 function isSupportedFile(filePath) {
   if (!filePath) return false;
 
@@ -57,6 +76,8 @@ function readFileForTab(filePath) {
 
   const content = fs.readFileSync(filePath, "utf8");
   const stat = fs.statSync(filePath);
+
+  watchFile(filePath);
 
   return {
     path: filePath,
@@ -84,7 +105,12 @@ function createWindow(initialFile = null, emptyWindow = false) {
     }
   });
 
-  win.loadFile("index.html");
+  win.loadFile("index.html", {
+    query: {
+      empty: emptyWindow ? "1" : "0",
+      detached: initialFile ? "1" : "0"
+    }
+  });
 
   win.webContents.once("did-finish-load", () => {
     if (initialFile) {
@@ -237,13 +263,16 @@ ipcMain.handle("save-file", async (_, file) => {
 
   fs.writeFileSync(filePath, windowsText, "utf8");
 
+  watchFile(filePath);
+
   BrowserWindow.getAllWindows().forEach((window) => {
     if (!window.isDestroyed()) {
       window.webContents.send("file-updated", {
         path: filePath,
         content: windowsText,
         name: path.basename(filePath),
-        lastSavedAt: new Date().toISOString()
+        lastSavedAt: new Date().toISOString(),
+        sourceWindowId: file.sourceWindowId || null
       });
     }
   });
@@ -298,6 +327,8 @@ ipcMain.handle("read-dropped-file", async (_, filePath) => {
   if (!isSupportedFile(filePath)) return null;
   const stat = fs.statSync(filePath);
 
+  watchFile(filePath);
+
   return {
     path: filePath,
     name: path.basename(filePath),
@@ -337,4 +368,34 @@ ipcMain.handle("notify-copy-started", () => {
       window.webContents.send("copy-started");
     }
   });
+});
+
+ipcMain.handle("refresh-session-files", async (_, files) => {
+  return files.map(file => {
+    if (!file.path) return file;
+    if (!fs.existsSync(file.path)) return file;
+
+    const content = fs.readFileSync(file.path, "utf8");
+    const stat = fs.statSync(file.path);
+
+    watchFile(file.path);
+
+    return {
+      ...file,
+      name: path.basename(file.path),
+      content,
+      lastSavedContent: content,
+      lastSavedAt: stat.mtime.toISOString()
+    };
+  });
+});
+
+ipcMain.handle("open-file-location", async (_, filePath) => {
+  if (!filePath) return false;
+  if (!fs.existsSync(filePath)) return false;
+
+  const { shell } = require("electron");
+  shell.showItemInFolder(filePath);
+
+  return true;
 });

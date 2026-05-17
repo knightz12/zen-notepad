@@ -44,6 +44,7 @@
         <div class="topbar-actions">
           <button onclick="saveFile()">Save</button>
           <button onclick="toggleWrap()" id="wrapBtn" class="wrap-btn">Wrap</button>
+          <button id="lineBtn" class="wrap-btn active">Lines</button>
         </div>
       </div>
 
@@ -78,10 +79,14 @@
         </div>
       </div>
 
-      <textarea id="editor" spellcheck="false"></textarea>
+      <div class="editor-wrap">
+        <div id="lineNumbers" class="line-numbers"></div>
+        <textarea id="editor" spellcheck="false"></textarea>
+      </div>
 
       <div id="status" class="status">
-        <span id="statusLeft" class="status-left">Line 1, Col 0 • Auto-save ON</span>
+        <span id="statusLeft" class="status-left">Ln 1, Col 0</span>
+        <span id="statusCenter" class="status-center">Tab 1/1</span>
         <span id="statusRight" class="status-right"></span>
       </div>
     </main>

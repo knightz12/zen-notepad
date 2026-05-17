@@ -12,6 +12,8 @@ const fileName = document.getElementById("fileName");
 const status = document.getElementById("status");
 const statusLeft = document.getElementById("statusLeft");
 const statusRight = document.getElementById("statusRight");
+const statusCenter = document.getElementById("statusCenter");
+const lineNumbers = document.getElementById("lineNumbers");
 // no global needed now
 const WINDOW_ID =
   Date.now().toString() + "-" + Math.random().toString(16).slice(2);
@@ -120,6 +122,23 @@ fileName.addEventListener("blur", () => {
 });
 
 async function loadSession() {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("empty") === "1") {
+    files = [normalizeFile({
+      path: null,
+      name: "Untitled.txt",
+      content: "",
+      lastSavedContent: "",
+      customName: false
+    })];
+
+    currentIndex = 0;
+    render();
+    saveSession();
+    return;
+  }
+  
   const startup = await window.zenAPI.getStartupFile();
 
   if (startup) {
@@ -132,10 +151,9 @@ async function loadSession() {
   const session = await window.zenAPI.loadSession();
 
   if (session && session.files && session.files.length) {
-    files = session.files;
-    currentIndex = session.currentIndex || 0;
-
+    files = await window.zenAPI.refreshSessionFiles(session.files);
     files = files.map(normalizeFile);
+    currentIndex = session.currentIndex || 0;
 
   } else {
     files = [{
@@ -148,6 +166,76 @@ async function loadSession() {
   }
 
   render();
+}
+
+function updateLineNumbers() {
+  const lines = editor.value.split("\n");
+
+  const currentLine =
+    editor.value.substring(0, editor.selectionStart).split("\n").length;
+
+  const style = getComputedStyle(editor);
+
+  const lineHeight =
+    parseFloat(style.lineHeight);
+
+  const editorWidth =
+    editor.clientWidth -
+    parseFloat(style.paddingLeft) -
+    parseFloat(style.paddingRight) - 2;
+
+  // hidden measuring element
+  let measure = document.getElementById("lineMeasure");
+
+  if (!measure) {
+    measure = document.createElement("div");
+    measure.id = "lineMeasure";
+
+    measure.style.position = "absolute";
+    measure.style.visibility = "hidden";
+    measure.style.pointerEvents = "none";
+    measure.style.whiteSpace = "pre-wrap";
+    measure.style.wordBreak = "break-word";
+    measure.style.overflowWrap = "break-word";
+
+    document.body.appendChild(measure);
+  }
+
+  measure.style.width = editorWidth + "px";
+  measure.style.font = style.font;
+  measure.style.lineHeight = style.lineHeight;
+  measure.style.padding = "0";
+  measure.style.margin = "0";
+
+  let html = "";
+
+  lines.forEach((lineText, index) => {
+    const lineNumber = index + 1;
+
+    let visualLines = 1;
+
+    if (!editor.classList.contains("no-wrap")) {
+      measure.textContent = lineText || " ";
+
+      visualLines = Math.max(
+        1,
+        Math.round(measure.scrollHeight / lineHeight)
+      );
+    }
+
+    html += `
+      <div
+        class="line-number ${
+          lineNumber === currentLine ? "active" : ""
+        }"
+        style="height:${visualLines * lineHeight}px"
+      >
+        ${lineNumber}
+      </div>
+    `;
+  });
+
+  lineNumbers.innerHTML = html;
 }
 
 function makeTabId() {
@@ -346,10 +434,24 @@ function render() {
       saveSession();
     };
 
+    const openLocationBtn = document.createElement("button");
+    openLocationBtn.className = "small-menu-btn";
+    openLocationBtn.textContent = "Open file location";
+    openLocationBtn.disabled = !file.path;
+
+    openLocationBtn.onclick = async (e) => {
+      e.stopPropagation();
+      closeAllTabMenus();
+
+      if (!file.path) return;
+      await window.zenAPI.openFileLocation(file.path);
+    };
+
     menu.appendChild(cutBtn);
     menu.appendChild(copyBtn);
     menu.appendChild(renameBtn);
     menu.appendChild(openNewWindowBtn);
+    menu.appendChild(openLocationBtn);
     document.body.appendChild(menu);
 
     tab.addEventListener("contextmenu", (e) => {
@@ -544,6 +646,7 @@ function render() {
   autoSizeTitle();
   editor.value = current?.content || "";
 
+  updateLineNumbers();
   updateStatus();
 }
 
@@ -934,6 +1037,12 @@ async function saveFile() {
     current.path = dir + "\\" + title;
   }
 
+  current.sourceWindowId = WINDOW_ID;
+
+  const keepScrollTop = editor.scrollTop;
+  const keepSelectionStart = editor.selectionStart;
+  const keepSelectionEnd = editor.selectionEnd;
+
   const saved = await window.zenAPI.saveFile(current);
 
   // canceled save
@@ -953,7 +1062,16 @@ async function saveFile() {
   current.renamedUnsaved = false;
   delete current.oldPath;
 
-  render();
+  refreshTitlesOnly();
+  updateLineNumbers();
+  updateStatus();
+
+  requestAnimationFrame(() => {
+    editor.scrollTop = keepScrollTop;
+    lineNumbers.scrollTop = keepScrollTop;
+    editor.setSelectionRange(keepSelectionStart, keepSelectionEnd);
+  });
+
   saveSession();
 }
 
@@ -984,13 +1102,31 @@ function formatStatusTime(type, value) {
 
 function updateStatus() {
   const pos = editor.selectionStart;
+  const end = editor.selectionEnd;
+
   const textBefore = editor.value.substring(0, pos);
   const lines = textBefore.split("\n");
+
   const line = lines.length;
   const col = lines[lines.length - 1].length;
 
+  let selectedLinesText = "";
+
+  if (pos !== end) {
+    const start = Math.min(pos, end);
+    const finish = Math.max(pos, end);
+
+    const selectedText = editor.value.substring(start, finish);
+    const selectedLines = selectedText.split("\n").length;
+
+    selectedLinesText = ` • Sel Ln ${selectedLines}`;
+  }
+
   statusLeft.textContent =
-    `Line ${line}, Col ${col} • Tab ${currentIndex + 1}/${files.length} • Auto-save ON`;
+    `Ln ${line}, Col ${col}${selectedLinesText}`;
+
+  statusCenter.textContent =
+    `Tab ${currentIndex + 1}/${files.length}`;
 
   const current = files[currentIndex];
 
@@ -1021,6 +1157,13 @@ editor.addEventListener("input", () => {
 
 editor.addEventListener("keyup", updateStatus);
 editor.addEventListener("click", updateStatus);
+
+editor.addEventListener("keyup", updateLineNumbers);
+editor.addEventListener("click", updateLineNumbers);
+
+editor.addEventListener("scroll", () => {
+  lineNumbers.scrollTop = editor.scrollTop;
+});
 
 setInterval(saveSession, 2000);
 
@@ -1483,21 +1626,46 @@ function updateMatchCount() {
 function findNext() {
   const text = editor.value;
   const query = findInput.value;
+
   if (!query) {
     updateMatchCount();
     return;
   }
 
-  let index = text.toLowerCase().indexOf(query.toLowerCase(), lastFindIndex + 1);
+  let index = text
+    .toLowerCase()
+    .indexOf(query.toLowerCase(), lastFindIndex + 1);
 
   if (index === -1) {
-    index = text.toLowerCase().indexOf(query.toLowerCase(), 0);
+    index = text
+      .toLowerCase()
+      .indexOf(query.toLowerCase(), 0);
   }
 
   if (index !== -1) {
     editor.focus();
-    editor.setSelectionRange(index, index + query.length);
+
+    editor.setSelectionRange(
+      index,
+      index + query.length
+    );
+
     lastFindIndex = index;
+
+    // 🔥 AUTO SCROLL TO MATCH
+    requestAnimationFrame(() => {
+      const before = text.substring(0, index);
+      const line = before.split("\n").length - 1;
+
+      const lineHeight =
+        parseInt(getComputedStyle(editor).lineHeight) || 20;
+
+      const targetScroll =
+        Math.max(0, (line - 5) * lineHeight);
+
+      editor.scrollTop = targetScroll;
+      lineNumbers.scrollTop = targetScroll;
+    });
   }
 
   updateMatchCount();
@@ -1506,21 +1674,46 @@ function findNext() {
 function findPrev() {
   const text = editor.value;
   const query = findInput.value;
+
   if (!query) {
     updateMatchCount();
     return;
   }
 
-  let index = text.toLowerCase().lastIndexOf(query.toLowerCase(), lastFindIndex - 1);
+  let index = text
+    .toLowerCase()
+    .lastIndexOf(query.toLowerCase(), lastFindIndex - 1);
 
   if (index === -1) {
-    index = text.toLowerCase().lastIndexOf(query.toLowerCase());
+    index = text
+      .toLowerCase()
+      .lastIndexOf(query.toLowerCase());
   }
 
   if (index !== -1) {
     editor.focus();
-    editor.setSelectionRange(index, index + query.length);
+
+    editor.setSelectionRange(
+      index,
+      index + query.length
+    );
+
     lastFindIndex = index;
+
+    // 🔥 AUTO SCROLL TO MATCH
+    requestAnimationFrame(() => {
+      const before = text.substring(0, index);
+      const line = before.split("\n").length - 1;
+
+      const lineHeight =
+        parseInt(getComputedStyle(editor).lineHeight) || 20;
+
+      const targetScroll =
+        Math.max(0, (line - 5) * lineHeight);
+
+      editor.scrollTop = targetScroll;
+      lineNumbers.scrollTop = targetScroll;
+    });
   }
 
   updateMatchCount();
@@ -1554,6 +1747,8 @@ function toggleWrap() {
   }
 
   localStorage.setItem("wrapEnabled", wrapEnabled);
+
+  updateLineNumbers();
 }
 
 // restore on load
@@ -1566,6 +1761,35 @@ if (wrapEnabled) {
 } else {
   editor.classList.add("no-wrap");
 }
+
+const lineBtn = document.getElementById("lineBtn");
+const editorWrap = document.querySelector(".editor-wrap");
+
+let lineNumbersEnabled =
+  localStorage.getItem("lineNumbersEnabled") !== "false";
+
+function applyLineNumbersState() {
+  if (lineNumbersEnabled) {
+    lineNumbers.style.display = "block";
+    lineBtn.classList.add("active");
+  } else {
+    lineNumbers.style.display = "none";
+    lineBtn.classList.remove("active");
+  }
+}
+
+applyLineNumbersState();
+
+lineBtn.addEventListener("click", () => {
+  lineNumbersEnabled = !lineNumbersEnabled;
+
+  localStorage.setItem(
+    "lineNumbersEnabled",
+    lineNumbersEnabled
+  );
+
+  applyLineNumbersState();
+});
 
 /* ---------------- REPLACE FEATURE ---------------- */
 
@@ -1709,19 +1933,56 @@ window.zenAPI.onOpenDetachedTab((file) => {
 });
 
 window.zenAPI.onFileUpdated((updatedFile) => {
+  if (updatedFile.sourceWindowId === WINDOW_ID) return;
   const index = files.findIndex(f => f.path === updatedFile.path);
 
   if (index === -1) return;
 
-  files[index].content = updatedFile.content;
-  files[index].lastSavedContent = updatedFile.content;
+  const oldText =
+    index === currentIndex
+      ? editor.value
+      : files[index].content || "";
+
+  const newText = updatedFile.content || "";
+
+  files[index].content = newText;
+  files[index].lastSavedContent = newText;
   files[index].lastSavedAt = updatedFile.lastSavedAt;
   files[index].name = updatedFile.name;
 
   if (index === currentIndex) {
-    editor.value = updatedFile.content;
+    const oldLines = oldText.split(/\r?\n/);
+    const newLines = newText.split(/\r?\n/);
+
+    let changedLine = 0;
+
+    for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+      if (oldLines[i] !== newLines[i]) {
+        changedLine = i;
+        break;
+      }
+    }
+
+    let cursorPos = 0;
+
+    for (let i = 0; i < changedLine; i++) {
+      cursorPos += newLines[i].length + 1;
+    }
+
+    editor.value = newText;
     fileName.value = updatedFile.name;
     autoSizeTitle();
+
+    requestAnimationFrame(() => {
+      editor.focus();
+      editor.setSelectionRange(cursorPos, cursorPos);
+
+      const lineHeight =
+        parseInt(getComputedStyle(editor).lineHeight) || 20;
+
+      editor.scrollTop =
+        Math.max(0, (changedLine - 5) * lineHeight);
+    });
   }
 
   render();

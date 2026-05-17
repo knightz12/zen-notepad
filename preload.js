@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld("zenAPI", {
   onFileUpdated: (callback) =>
   ipcRenderer.on("file-updated", (_, file) => callback(file)),
 
+  openFileLocation: (filePath) =>
+  ipcRenderer.invoke("open-file-location", filePath),
+
+  refreshSessionFiles: (files) =>
+    ipcRenderer.invoke("refresh-session-files", files),
+
   setTabClipboard: (data) => ipcRenderer.invoke("set-tab-clipboard", data),
   getTabClipboard: () => ipcRenderer.invoke("get-tab-clipboard"),
   clearTabClipboard: () => ipcRenderer.invoke("clear-tab-clipboard"),
